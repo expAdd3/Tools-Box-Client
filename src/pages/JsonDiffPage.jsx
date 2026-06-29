@@ -755,13 +755,13 @@ const JsonDiffPage = () => {
   // 根据状态码获取颜色类
   const getStatusColorClass = (statusCode) => {
     if (statusCode === 200) {
-      return 'bg-green-100 text-green-800';
+      return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
     } else if (statusCode >= 400 && statusCode < 500) {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
     } else if (statusCode >= 500) {
-      return 'bg-red-100 text-red-800';
+      return 'bg-destructive/15 text-destructive';
     } else {
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -776,7 +776,7 @@ const JsonDiffPage = () => {
                     variant="ghost"
                     size="icon"
                     onClick={() => setError('')}
-                    className="text-white opacity-100"
+                    className="text-current opacity-100"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -838,11 +838,11 @@ const JsonDiffPage = () => {
 
                     {/* 历史记录下拉列表 */}
                     {showHistory1 && historyList1.length > 0 && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-10 mt-1 w-full bg-popover text-popover-foreground border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                           {historyList1.map((item, index) => (
                               <div
                                   key={index}
-                                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
+                                  className="px-4 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between items-center"
                                   onClick={() => {
                                     setUrl1(item.url);
                                     setShowHistory1(false);
@@ -896,7 +896,7 @@ const JsonDiffPage = () => {
               </div>
 
               {/* 灰色分割线 */}
-              <div className="border-t border-gray-300"></div>
+              <div className="border-t border-border"></div>
 
               {/* 右侧URL输入框 */}
               <div className="space-y-2">
@@ -941,11 +941,11 @@ const JsonDiffPage = () => {
 
                     {/* 历史记录下拉列表 */}
                     {showHistory2 && historyList2.length > 0 && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-10 mt-1 w-full bg-popover text-popover-foreground border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                           {historyList2.map((item, index) => (
                               <div
                                   key={index}
-                                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex justify-between items-center"
+                                  className="px-4 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between items-center"
                                   onClick={() => {
                                     setUrl2(item.url);
                                     setShowHistory2(false);
@@ -998,7 +998,7 @@ const JsonDiffPage = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-4 text-sm text-gray-500">
+            <div className="mt-4 text-sm text-muted-foreground">
               <p>提示：使用公共API时可能需要代理服务解决跨域问题</p>
             </div>
           </CardContent>
@@ -1167,12 +1167,12 @@ const JsonDiffPage = () => {
                     </Button>
 
                     {showPathSuggestions && leftJson && (
-                        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                        <div className="absolute z-10 mt-1 w-full bg-popover text-popover-foreground border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                           {fieldPathSuggestions.length > 0 ? (
                               fieldPathSuggestions.map((path, index) => (
                                   <div
                                       key={index}
-                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                      className="px-4 py-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm"
                                       onMouseDown={(e) => e.preventDefault()}
                                       onClick={() => selectPathSuggestion(path)}
                                   >
@@ -1180,14 +1180,14 @@ const JsonDiffPage = () => {
                                   </div>
                               ))
                           ) : (
-                              <div className="px-4 py-2 text-sm text-gray-500">
+                              <div className="px-4 py-2 text-sm text-muted-foreground">
                                 未找到匹配的字段路径
                               </div>
                           )}
                         </div>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">多个路径用逗号分隔</p>
+                  <p className="text-xs text-muted-foreground mt-1">多个路径用逗号分隔</p>
                 </div>
 
                 <div>
@@ -1197,7 +1197,7 @@ const JsonDiffPage = () => {
                       onChange={(e) => updateIgnoreOption('regexPattern', e.target.value)}
                       placeholder="例如: .*\.id 忽略所有id字段"
                   />
-                  <p className="text-xs text-gray-500 mt-1">使用正则表达式匹配字段路径</p>
+                  <p className="text-xs text-muted-foreground mt-1">使用正则表达式匹配字段路径</p>
                 </div>
               </div>
 
@@ -1209,7 +1209,7 @@ const JsonDiffPage = () => {
                       onCheckedChange={(checked) => updateIgnoreOption('ignoreDynamicValues', checked)}
                   />
                   <Label htmlFor="dynamic-values">忽略动态值</Label>
-                  <p className="text-xs text-gray-500 ml-2">(时间戳、UUID等)</p>
+                  <p className="text-xs text-muted-foreground ml-2">(时间戳、UUID等)</p>
                 </div>
 
                 <div>
@@ -1231,7 +1231,7 @@ const JsonDiffPage = () => {
                         </Button>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">选择要忽略的数据类型</p>
+                  <p className="text-xs text-muted-foreground mt-1">选择要忽略的数据类型</p>
                 </div>
               </div>
             </div>
@@ -1268,11 +1268,11 @@ const JsonDiffPage = () => {
               <CardContent>
             <pre
                 ref={diffRef}
-                className="bg-gray-100 p-4 rounded-md overflow-auto max-h-[500px]"
+                className="bg-muted p-4 rounded-md overflow-auto max-h-[500px] border border-border"
             >
               {diffResult.map((part, index) => {
-                const color = part.added ? 'bg-green-200' :
-                    part.removed ? 'bg-red-200' : '';
+                const color = part.added ? 'bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-200' :
+                    part.removed ? 'bg-red-100 dark:bg-red-900/30 text-red-900 dark:text-red-200' : '';
                 return (
                     <span key={index} className={`${color} block whitespace-pre-wrap`}>
                     {part.value}
@@ -1282,11 +1282,11 @@ const JsonDiffPage = () => {
             </pre>
                 <div className="mt-4 flex gap-4">
                   <div className="flex items-center">
-                    <div className="w-4 h-4 bg-red-200 mr-2"></div>
+                    <div className="w-4 h-4 bg-red-100 dark:bg-red-900/30 mr-2"></div>
                     <span>删除的内容</span>
                   </div>
                   <div className="flex items-center">
-                    <div className="w-4 h-4 bg-green-200 mr-2"></div>
+                    <div className="w-4 h-4 bg-green-100 dark:bg-green-900/30 mr-2"></div>
                     <span>新增的内容</span>
                   </div>
                 </div>

@@ -1,16 +1,15 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Home, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Color palette for different tags
 const TAG_COLORS = [
-  'bg-blue-100 text-blue-800',
-  'bg-green-100 text-green-800',
-  'bg-yellow-100 text-yellow-800',
-  'bg-purple-100 text-purple-800',
-  'bg-pink-100 text-pink-800',
-  'bg-indigo-100 text-indigo-800',
+  'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200',
+  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200',
+  'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200',
+  'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200',
+  'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-200',
+  'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200',
 ];
 
 const JsonFieldNavigator = ({ json, currentPath = [], onPathChange, onScrollToField }) => {
@@ -85,7 +84,7 @@ const JsonFieldNavigator = ({ json, currentPath = [], onPathChange, onScrollToFi
           const colorIndex = index % TAG_COLORS.length;
           return (
             <React.Fragment key={index}>
-              <ChevronRight className="h-3 w-3 text-gray-400" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
               <Button 
                 variant="ghost" 
                 size="sm"
@@ -141,7 +140,7 @@ const JsonFieldNavigator = ({ json, currentPath = [], onPathChange, onScrollToFi
             )}
           </>
         ) : (
-          <div className="text-xs text-gray-500 px-2 py-1">
+          <div className="text-xs text-muted-foreground px-2 py-1">
             当前字段没有子字段
           </div>
         )}
@@ -151,4 +150,3 @@ const JsonFieldNavigator = ({ json, currentPath = [], onPathChange, onScrollToFi
 };
 
 export default JsonFieldNavigator;
-

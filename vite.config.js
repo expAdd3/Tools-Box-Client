@@ -29,12 +29,16 @@ const plugins = isProdEnv
       react(),
       devHtmlTransformer(CHAT_VARIABLE),
     ];
+if (process.env.NOCODE_COMPILER_PATH) {
+    const { componentCompiler } = await import(process.env.NOCODE_COMPILER_PATH);
+    plugins.push(componentCompiler());
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
     host: '::',
-    port: '8081',
+    port: '8080',
     hmr: {
       overlay: false,
     },
