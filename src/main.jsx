@@ -14,6 +14,14 @@ if (typeof window !== 'undefined' && !window.crypto) {
   };
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-    <App />
-);
+// 确保DOM元素存在后再渲染应用
+document.addEventListener('DOMContentLoaded', () => {
+  const rootElement = document.getElementById("root");
+  if (rootElement) {
+    ReactDOM.createRoot(rootElement).render(
+      <App />
+    );
+  } else {
+    console.error("Root element not found");
+  }
+});
