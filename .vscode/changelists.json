@@ -1,0 +1,15 @@
+{
+  "changelists": [
+    {
+      "name": "Default",
+      "files": [
+        ".vscode/changelists.json",
+        "src/components/JsonTree.jsx",
+        "src/pages/JsonFormatterPage.jsx",
+        "src/pages/MarkdownViewerPage.jsx",
+        "src/App.jsx"
+      ]
+    }
+  ],
+  "active": "Default"
+}

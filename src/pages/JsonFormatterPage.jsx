@@ -17,7 +17,7 @@ const JsonFormatterPage = () => {
   const [isTreeView, setIsTreeView] = useState(true);
   const [allExpanded, setAllExpanded] = useState(true);
   const [preserveEscape, setPreserveEscape] = useState(false);
-  
+
   // 拖拽调整宽度相关状态
   const [leftWidth, setLeftWidth] = useState(35); // 左侧默认占 35%
   const [isDragging, setIsDragging] = useState(false);
@@ -33,11 +33,11 @@ const JsonFormatterPage = () => {
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isDragging || !containerRef.current) return;
-      
+
       const container = containerRef.current;
       const rect = container.getBoundingClientRect();
       const newLeftWidth = ((e.clientX - rect.left) / rect.width) * 100;
-      
+
       // 限制最小和最大宽度
       if (newLeftWidth >= 20 && newLeftWidth <= 60) {
         setLeftWidth(newLeftWidth);
@@ -66,12 +66,12 @@ const JsonFormatterPage = () => {
   // 从字符串中提取 JSON 内容 - 增强版本
   const extractJsonFromString = (str) => {
     if (!str || typeof str !== 'string') return str;
-    
+
     // 去除首尾空白
     let trimmed = str.trim();
-    
+
     // 如果字符串被包裹在引号中，先去除外层引号
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
         (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
       try {
         // 尝试解析为字符串（处理转义）
@@ -84,11 +84,11 @@ const JsonFormatterPage = () => {
         trimmed = trimmed.slice(1, -1).trim();
       }
     }
-    
+
     // 尝试找到 JSON 的开始位置（{ 或 [）
     const firstBrace = trimmed.indexOf('{');
     const firstBracket = trimmed.indexOf('[');
-    
+
     let startIndex = -1;
     if (firstBrace === -1 && firstBracket === -1) {
       return str; // 没有找到 JSON 标记，返回原字符串
@@ -99,7 +99,7 @@ const JsonFormatterPage = () => {
     } else {
       startIndex = Math.min(firstBrace, firstBracket);
     }
-    
+
     // 找到对应的结束位置 - 使用栈来匹配括号
     let endIndex = trimmed.length;
     let depth = 0;
@@ -107,25 +107,25 @@ const JsonFormatterPage = () => {
     let escapeNext = false;
     const openChar = trimmed[startIndex];
     const closeChar = openChar === '{' ? '}' : ']';
-    
+
     for (let i = startIndex; i < trimmed.length; i++) {
       const char = trimmed[i];
-      
+
       if (escapeNext) {
         escapeNext = false;
         continue;
       }
-      
+
       if (char === '\\') {
         escapeNext = true;
         continue;
       }
-      
+
       if (char === '"') {
         inString = !inString;
         continue;
       }
-      
+
       if (!inString) {
         if (char === openChar) {
           depth++;
@@ -138,30 +138,30 @@ const JsonFormatterPage = () => {
         }
       }
     }
-    
+
     return trimmed.substring(startIndex, endIndex);
   };
 
   // 尝试修复常见的 JSON 格式问题
   const fixCommonJsonIssues = (str) => {
     if (!str || typeof str !== 'string') return str;
-    
+
     let fixed = str;
-    
+
     // 1. 处理未转义的换行符和制表符
     fixed = fixed.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
-    
+
     // 2. 处理尾随逗号（在对象和数组中）
     fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
-    
+
     // 3. 处理单引号（转为双引号）
     if (fixed.trim().startsWith("'") && fixed.trim().endsWith("'")) {
       fixed = fixed.trim().slice(1, -1);
     }
-    
+
     // 4. 处理 JavaScript undefined
     fixed = fixed.replace(/: undefined/g, ': null').replace(/:undefined/g, ':null');
-    
+
     // 5. 处理 Python 风格的单引号 JSON
     if (fixed.trim().startsWith("'") && fixed.trim().endsWith("'")) {
       try {
@@ -171,16 +171,16 @@ const JsonFormatterPage = () => {
         // 忽略错误
       }
     }
-    
+
     return fixed;
   };
 
   // 检查字符串是否是 JSON 字符串 - 增强版本
   const isJsonString = (str) => {
     if (typeof str !== 'string' || !str.trim()) return false;
-    
+
     const trimmed = str.trim();
-    
+
     // 情况 1: 标准 JSON 对象或数组（以 { 或 [ 开头和结尾）
     if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
         (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
@@ -189,25 +189,25 @@ const JsonFormatterPage = () => {
         let depth = 0;
         let inString = false;
         let escapeNext = false;
-        
+
         for (let i = 0; i < trimmed.length; i++) {
           const char = trimmed[i];
-          
+
           if (escapeNext) {
             escapeNext = false;
             continue;
           }
-          
+
           if (char === '\\') {
             escapeNext = true;
             continue;
           }
-          
+
           if (char === '"') {
             inString = !inString;
             continue;
           }
-          
+
           if (!inString) {
             if (char === '{' || char === '[') {
               depth++;
@@ -217,7 +217,7 @@ const JsonFormatterPage = () => {
             }
           }
         }
-        
+
         // 如果括号匹配，很可能是 JSON
         if (depth === 0) {
           return true;
@@ -226,7 +226,7 @@ const JsonFormatterPage = () => {
         // 验证失败，继续其他检查
       }
     }
-    
+
     // 情况 2: 字符串被包裹在引号中，但内部包含 JSON
     if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
         (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
@@ -248,24 +248,24 @@ const JsonFormatterPage = () => {
         }
       }
     }
-    
+
     // 情况 3: 包含转义的 JSON 标记（原始转义序列）
     if (trimmed.includes('\\"') && (trimmed.includes('\\{') || trimmed.includes('\\['))) {
       return true;
     }
-    
+
     // 情况 4: 包含转义的反斜杠和引号（双重转义）
     if (trimmed.includes('\\\\') && trimmed.includes('\\"')) {
       return true;
     }
-    
+
     return false;
   };
 
   // 递归解析对象/数组中的 JSON 字符串字段 - 增强版本
   const deepParseJsonStrings = (obj, depth = 0, maxDepth = 15) => {
     if (depth > maxDepth) return obj;
-    
+
     if (obj === null || typeof obj !== 'object') {
       // 如果是字符串，尝试解析为 JSON
       if (typeof obj === 'string' && isJsonString(obj)) {
@@ -276,15 +276,15 @@ const JsonFormatterPage = () => {
       }
       return obj;
     }
-    
+
     if (Array.isArray(obj)) {
       return obj.map(item => deepParseJsonStrings(item, depth + 1, maxDepth));
     }
-    
+
     // 处理对象
     const result = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         const value = obj[key];
         result[key] = deepParseJsonStrings(value, depth + 1, maxDepth);
       }
@@ -298,24 +298,24 @@ const JsonFormatterPage = () => {
     if (depth > maxDepth) {
       return { success: false, error: '递归深度超过限制，可能是循环引用的 JSON' };
     }
-    
+
     if (!str) {
       return { success: true, data: null };
     }
-    
+
     // 如果已经是对象，递归解析其中的 JSON 字符串字段
     if (typeof str === 'object' && str !== null) {
       const parsedObj = deepParseJsonStrings(str, depth, maxDepth);
       return { success: true, data: parsedObj };
     }
-    
+
     if (typeof str !== 'string') {
       return { success: true, data: str };
     }
-    
+
     // 首先检查是否是纯字符串（去除引号后）
     const trimmed = str.trim();
-    
+
     // 处理被引号包裹的字符串（可能是双重编码的 JSON）
     if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
         (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
@@ -343,14 +343,14 @@ const JsonFormatterPage = () => {
         }
       }
     }
-    
+
     try {
       // 首先尝试直接解析
       let parsed = JSON.parse(str);
-      
+
       // 递归解析结果中的 JSON 字符串字段
       parsed = deepParseJsonStrings(parsed, depth + 1, maxDepth);
-      
+
       return { success: true, data: parsed };
     } catch (e) {
       // 直接解析失败，尝试提取 JSON 内容
@@ -363,7 +363,7 @@ const JsonFormatterPage = () => {
             return result;
           }
         }
-        
+
         // 尝试修复常见问题后再次解析
         const fixed = fixCommonJsonIssues(str);
         if (fixed !== str) {
@@ -383,19 +383,19 @@ const JsonFormatterPage = () => {
             }
           }
         }
-        
+
         // 尝试去除可能的转义并再次解析
         let cleaned = str
-          .replace(/\\"/g, '"')  // 替换转义的引号
-          .replace(/\\\\/g, '\\') // 替换转义的反斜杠
-          .replace(/^["']|["']$/g, ''); // 去除首尾引号
-        
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, '\\')
+          .replace(/^["']|["']$/g, '');
+
         const extracted2 = extractJsonFromString(cleaned);
         const result2 = tryParseJson(extracted2, depth + 1, maxDepth);
         if (result2.success) {
           return result2;
         }
-        
+
         // 尝试处理多层嵌套的字符串
         if (str.startsWith('"') && str.endsWith('"')) {
           try {
@@ -410,11 +410,10 @@ const JsonFormatterPage = () => {
             // 继续尝试其他方法
           }
         }
-        
-      } catch (extractError) {
+      } catch {
         // 提取也失败了
       }
-      
+
       return { success: false, error: e.message };
     }
   };
@@ -516,10 +515,10 @@ const JsonFormatterPage = () => {
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
         textarea.select();
-        
+
         const successful = document.execCommand('copy');
         document.body.removeChild(textarea);
-        
+
         if (successful) {
           toast.success('已复制到剪贴板');
         } else {
@@ -560,11 +559,8 @@ const JsonFormatterPage = () => {
 
   // 切换所有节点的展开/折叠状态
   const toggleAllExpanded = () => {
-    setAllExpanded(!allExpanded);
-    // 强制重新渲染树组件
-    setParsedData(prev => ({ ...prev }));
+    setAllExpanded(prev => !prev);
   };
-
 
   return (
     <div className="container mx-auto p-4">
@@ -588,13 +584,11 @@ const JsonFormatterPage = () => {
         </Alert>
       )}
 
-      {/* 可拖拽调整宽度的布局 */}
-      <div 
+      <div
         ref={containerRef}
         className="flex gap-0 relative"
         style={{ minHeight: '760px' }}
       >
-        {/* 左侧输入区域 */}
         <div style={{ width: `${leftWidth}%` }} className="flex-shrink-0">
           <Card className="h-full">
             <CardHeader className="flex flex-row justify-between items-center py-3">
@@ -626,7 +620,9 @@ const JsonFormatterPage = () => {
                     checked={preserveEscape}
                     onCheckedChange={setPreserveEscape}
                   />
-                  <Label htmlFor="preserve-escape" className="text-xs text-muted-foreground cursor-pointer">保留转义</Label>
+                  <Label htmlFor="preserve-escape" className="text-xs text-muted-foreground cursor-pointer">
+                    保留转义
+                  </Label>
                 </div>
               </div>
             </CardHeader>
@@ -644,7 +640,6 @@ const JsonFormatterPage = () => {
           </Card>
         </div>
 
-        {/* 拖拽分隔线 */}
         <div
           className={`w-4 flex-shrink-0 flex items-center justify-center cursor-col-resize transition-colors ${isDragging ? 'bg-blue-200' : 'bg-muted hover:bg-accent'}`}
           onMouseDown={handleMouseDown}
@@ -653,7 +648,6 @@ const JsonFormatterPage = () => {
           <div className={`w-0.5 h-8 rounded-full ${isDragging ? 'bg-blue-400' : 'bg-muted-foreground/70'}`}></div>
         </div>
 
-        {/* 右侧结果区域 */}
         <div style={{ width: `${100 - leftWidth - 1}%` }} className="flex-shrink-0">
           <Card className="h-full">
             <CardHeader className="flex flex-row justify-between items-center py-3">
@@ -718,8 +712,8 @@ const JsonFormatterPage = () => {
             </CardHeader>
             <CardContent className="pt-0">
               {isTreeView && parsedData && typeof parsedData === 'object' ? (
-                <div className="min-h-[680px] h-[680px] resize-y overflow-auto bg-muted p-4 rounded-md font-mono text-sm border border-border">
-                  <JsonTree data={parsedData} />
+                <div className="min-h-[680px] h-[680px] resize-y overflow-auto bg-muted rounded-md font-mono text-sm border border-border">
+                  <JsonTree data={parsedData} allExpanded={allExpanded} />
                 </div>
               ) : (
                 <Textarea
@@ -733,7 +727,6 @@ const JsonFormatterPage = () => {
           </Card>
         </div>
       </div>
-
     </div>
   );
 };
