@@ -9,41 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ChevronDown, ChevronLeft, ChevronRight, Maximize2, Minimize2, X } from 'lucide-react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
-const defaultMarkdown = [
-  '# Markdown 展示器',
-  '',
-  '欢迎使用 **Markdown 实时预览**工具。',
-  '',
-  '## 代码高亮',
-  '',
-  '### JavaScript',
-  '',
-  '```js',
-  'function greet(name) {',
-  '  console.log(`Hello, ${name}!`);',
-  '}',
-  '```',
-  '',
-  '### Python',
-  '',
-  '```python',
-  'def fibonacci(n):',
-  '    if n <= 1:',
-  '        return n',
-  '    return fibonacci(n-1) + fibonacci(n-2)',
-  '```',
-  '',
-  '## GFM 支持',
-  '',
-  '| 功能 | 支持 |',
-  '|------|------|',
-  '| 表格 | ✅ |',
-  '| 删除线 | ~~示例~~ |',
-  '',
-  '- [x] 支持任务列表',
-  '- [ ] 支持更多功能'
-].join('\n');
-
 const slugify = (text) => {
   const normalized = String(text)
     .toLowerCase()
@@ -129,6 +94,14 @@ const collectExpandableIds = (nodes) => {
   return ids;
 };
 
+// 统一的拖拽分隔条：两条线由同一组件渲染，高度/位置保证一致
+// 竖条对齐到内容框（顶部偏移 = padding 16px + header 36px = 52px，高度 = 内容框高度）
+const ResizeHandle = () => (
+  <PanelResizeHandle className="group w-3 mx-1 flex items-start justify-center cursor-col-resize">
+    <div className="mt-[52px] h-[calc(75vh-36px)] w-1.5 rounded-full bg-border transition-colors group-hover:bg-muted-foreground/70" />
+  </PanelResizeHandle>
+);
+
 const baseComponents = {
   code({ node, inline, className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || '');
@@ -166,7 +139,7 @@ const headingClassMap = {
   6: 'text-sm font-semibold mt-2 mb-1 text-muted-foreground',
 };
 
-const MarkdownPreview = ({ markdown, tocItems, isFullscreen = false }) => {
+const MarkdownPreview = ({ markdown, tocItems }) => {
   let headingIndex = -1;
 
   const renderHeading = (Tag, level) => ({ children, ...props }) => {
@@ -190,7 +163,7 @@ const MarkdownPreview = ({ markdown, tocItems, isFullscreen = false }) => {
           style={oneDark}
           language={match[1]}
           PreTag="div"
-          customStyle={isFullscreen ? { fontSize: '12px' } : undefined}
+          customStyle={{ fontSize: '12px' }}
           {...props}
         >
           {String(children).replace(/\n$/, '')}
@@ -199,7 +172,7 @@ const MarkdownPreview = ({ markdown, tocItems, isFullscreen = false }) => {
     }
 
     return (
-      <code className={`bg-muted px-1 py-0.5 rounded font-mono ${isFullscreen ? 'text-xs' : 'text-sm'}`} {...props}>
+      <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs" {...props}>
         {children}
       </code>
     );
@@ -224,7 +197,7 @@ const MarkdownPreview = ({ markdown, tocItems, isFullscreen = false }) => {
 };
 
 const MarkdownViewerPage = () => {
-  const [markdown, setMarkdown] = useState(defaultMarkdown);
+  const [markdown, setMarkdown] = useState('');
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [fullscreenTocCollapsed, setFullscreenTocCollapsed] = useState(false);
@@ -394,7 +367,7 @@ const MarkdownViewerPage = () => {
           </div>
         </div>
 
-        <div className={`border rounded-md p-2 bg-card ${bodyClassName} overflow-auto`}>
+        <div className={`border rounded-md p-2 bg-card ${bodyClassName} overflow-auto font-serif`}>
           {tocTree.length > 0 ? (
             renderTocNodes(tocTree)
           ) : (
@@ -414,11 +387,7 @@ const MarkdownViewerPage = () => {
           {renderTocPanel('h-[75vh]', tocCollapsed, handleToggleMainTocCollapse, true, true, 'h-[calc(75vh-36px)]')}
         </Panel>
 
-        {!tocCollapsed && (
-          <PanelResizeHandle className="w-3 flex items-center justify-center cursor-col-resize transition-colors bg-muted hover:bg-accent mx-1 rounded-md border border-border">
-            <div className="w-1 h-16 rounded-full bg-muted-foreground/60" />
-          </PanelResizeHandle>
-        )}
+        {!tocCollapsed && <ResizeHandle />}
 
         <Panel defaultSize={32} minSize={18} className="flex flex-col p-4 px-2">
           <div className="flex items-center justify-end mb-2 h-7">
@@ -432,13 +401,11 @@ const MarkdownViewerPage = () => {
             value={markdown}
             onChange={(e) => setMarkdown(e.target.value)}
             placeholder="在此输入 Markdown 内容..."
-            className="w-full h-[calc(75vh-36px)] min-h-[calc(75vh-36px)] max-h-[calc(75vh-36px)] font-mono overflow-y-auto"
+            className="w-full h-[calc(75vh-36px)] min-h-[calc(75vh-36px)] max-h-[calc(75vh-36px)] font-mono overflow-y-auto text-muted-foreground"
           />
         </Panel>
 
-        <PanelResizeHandle className="w-3 flex items-center justify-center cursor-col-resize transition-colors bg-muted hover:bg-accent mx-1 rounded-md border border-border">
-          <div className="w-1 h-16 rounded-full bg-muted-foreground/60" />
-        </PanelResizeHandle>
+        <ResizeHandle />
 
         <Panel defaultSize={52} minSize={24} className="flex flex-col p-4 pl-2">
           <div className="flex items-center justify-end mb-2 h-7">
@@ -469,7 +436,7 @@ const MarkdownViewerPage = () => {
                     'h-[calc(100%-36px)]'
                   )}
                   <div ref={fullscreenPreviewRef} className="flex-1 overflow-auto border rounded-md p-6 bg-card">
-                    <MarkdownPreview markdown={markdown} tocItems={tocItems} isFullscreen />
+                    <MarkdownPreview markdown={markdown} tocItems={tocItems} />
                   </div>
                 </div>
               </DialogContent>

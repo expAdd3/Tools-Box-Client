@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Github } from 'lucide-react';
 import { ThemeProvider } from 'next-themes';
@@ -35,42 +34,25 @@ function App() {
   const [activeTab, setActiveTab] = useState(0);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  const renderPage = () => {
-    switch (activeTab) {
-      case 0:
-        return <JsonDiffPage />;
-      case 1:
-        return <JsonFormatterPage />;
-      case 2:
-        return <JsonlFormatterPage />;
-      case 3:
-        return <TextDiffPage />;
-      case 4:
-        return <TimestampConverterPage />;
-      case 5:
-        return <DateDifferencePage />;
-      case 6:
-        return <AsciiConverterPage />;
-      case 7:
-        return <UnicodeConverterPage />;
-      case 8:
-        return <Base64Converter />;
-      case 9:
-        return <UuidGenerator />;
-      case 10:
-        return <TextDeduplicator />;
-      case 11:
-        return <JwtParser />;
-      case 12:
-        return <UrlEncoderDecoder />;
-      case 13:
-        return <MarkdownViewerPage />;
-      case 14:
-        return <PlaceholderPage />;
-      default:
-        return <JsonDiffPage />;
-    }
-  };
+  // 所有页面始终保持挂载，仅通过 CSS 隐藏非当前页，
+  // 这样切换 Tab 时各页面的输入内容（组件 local state）不会被销毁。
+  const pages = [
+    <JsonDiffPage />,
+    <JsonFormatterPage />,
+    <JsonlFormatterPage />,
+    <TextDiffPage />,
+    <TimestampConverterPage />,
+    <DateDifferencePage />,
+    <AsciiConverterPage />,
+    <UnicodeConverterPage />,
+    <Base64Converter />,
+    <UuidGenerator />,
+    <TextDeduplicator />,
+    <JwtParser />,
+    <UrlEncoderDecoder />,
+    <MarkdownViewerPage />,
+    <PlaceholderPage />,
+  ];
 
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
@@ -87,7 +69,11 @@ function App() {
           <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
             <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
             <main className="w-full flex-1 min-h-0 overflow-auto">
-              {renderPage()}
+              {pages.map((page, index) => (
+                <div key={index} className={activeTab === index ? 'h-full' : 'hidden'}>
+                  {page}
+                </div>
+              ))}
             </main>
             <footer className="h-14 shrink-0 border-t bg-background px-4 md:px-6 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">© 2026 Developer Toolbox</span>
@@ -111,4 +97,3 @@ function App() {
 }
 
 export default App;
-
