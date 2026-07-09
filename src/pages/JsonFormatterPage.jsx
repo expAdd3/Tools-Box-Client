@@ -292,8 +292,143 @@ const JsonFormatterPage = () => {
     return result;
   };
 
+  // 宽容 JSON 解析器：容忍"未转义的内嵌 JSON 字符串"这种半合法数据
+  // 例如：{"extra_config": "{"key": "value"}"} —— 内层引号未做转义
+  // 遇到 `"` 后紧跟 `{`/`[` 时，优先把它当嵌套对象/数组解析，末尾闭合 `"` 若存在则消费掉
+  const lenientParseJson = (text) => {
+    let pos = 0;
+    const len = text.length;
+
+    const isWhitespace = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+    const skipWs = () => {
+      while (pos < len && isWhitespace(text[pos])) pos++;
+    };
+
+    const parseValue = () => {
+      skipWs();
+      if (pos >= len) throw new Error(`意外结束于位置 ${pos}`);
+      const c = text[pos];
+      if (c === '{') return parseObject();
+      if (c === '[') return parseArray();
+      if (c === '"' || c === "'") return parseString();
+      if (c === 't' || c === 'f') return parseBool();
+      if (c === 'n') return parseNull();
+      if (c === '-' || (c >= '0' && c <= '9')) return parseNumber();
+      throw new Error(`意外字符 '${c}' 位置 ${pos}`);
+    };
+
+    const parseObject = () => {
+      pos++; // '{'
+      const obj = {};
+      skipWs();
+      if (text[pos] === '}') { pos++; return obj; }
+      while (true) {
+        skipWs();
+        const key = parseString();
+        skipWs();
+        if (text[pos] !== ':') throw new Error(`期望 ':' 于位置 ${pos}`);
+        pos++;
+        const value = parseValue();
+        obj[key] = value;
+        skipWs();
+        if (text[pos] === ',') { pos++; continue; }
+        if (text[pos] === '}') { pos++; return obj; }
+        throw new Error(`期望 ',' 或 '}' 于位置 ${pos}`);
+      }
+    };
+
+    const parseArray = () => {
+      pos++; // '['
+      const arr = [];
+      skipWs();
+      if (text[pos] === ']') { pos++; return arr; }
+      while (true) {
+        arr.push(parseValue());
+        skipWs();
+        if (text[pos] === ',') { pos++; continue; }
+        if (text[pos] === ']') { pos++; return arr; }
+        throw new Error(`期望 ',' 或 ']' 于位置 ${pos}`);
+      }
+    };
+
+    const parseString = () => {
+      const quote = text[pos];
+      if (quote !== '"' && quote !== "'") {
+        throw new Error(`期望字符串引号 于位置 ${pos}`);
+      }
+      pos++; // opening quote
+
+      // 关键点：peek 到 `{` 或 `[` 时，把它当作被引号包住的嵌套对象/数组解析
+      const savedPos = pos;
+      let peek = pos;
+      while (peek < len && isWhitespace(text[peek])) peek++;
+      const peekChar = text[peek];
+      if (peekChar === '{' || peekChar === '[') {
+        try {
+          pos = peek;
+          const embedded = peekChar === '{' ? parseObject() : parseArray();
+          skipWs();
+          // 可选闭合引号
+          if (text[pos] === quote) pos++;
+          return embedded;
+        } catch {
+          pos = savedPos; // 回退，按普通字符串解析
+        }
+      }
+
+      let result = '';
+      while (pos < len) {
+        const c = text[pos];
+        if (c === quote) { pos++; return result; }
+        if (c === '\\') {
+          pos++;
+          const n = text[pos];
+          if (n === '"' || n === "'" || n === '\\' || n === '/') { result += n; pos++; }
+          else if (n === 'n') { result += '\n'; pos++; }
+          else if (n === 't') { result += '\t'; pos++; }
+          else if (n === 'r') { result += '\r'; pos++; }
+          else if (n === 'b') { result += '\b'; pos++; }
+          else if (n === 'f') { result += '\f'; pos++; }
+          else if (n === 'u') {
+            const hex = text.substr(pos + 1, 4);
+            result += String.fromCharCode(parseInt(hex, 16));
+            pos += 5;
+          } else { result += n; pos++; }
+        } else {
+          result += c;
+          pos++;
+        }
+      }
+      throw new Error('字符串未闭合');
+    };
+
+    const parseBool = () => {
+      if (text.substr(pos, 4) === 'true') { pos += 4; return true; }
+      if (text.substr(pos, 5) === 'false') { pos += 5; return false; }
+      throw new Error(`非法布尔值 于位置 ${pos}`);
+    };
+    const parseNull = () => {
+      if (text.substr(pos, 4) === 'null') { pos += 4; return null; }
+      throw new Error(`非法 null 于位置 ${pos}`);
+    };
+    const parseNumber = () => {
+      const start = pos;
+      if (text[pos] === '-') pos++;
+      while (pos < len && /[0-9.eE+-]/.test(text[pos])) pos++;
+      const n = Number(text.substring(start, pos));
+      if (Number.isNaN(n)) throw new Error(`非法数字 于位置 ${start}`);
+      return n;
+    };
+
+    const value = parseValue();
+    skipWs();
+    return value;
+  };
+
   // 尝试解析 JSON 序列化后的字符串（递归解析）- 增强版本
-  const tryParseJson = (str, depth = 0, maxDepth = 15) => {
+  // options.parseEmbedded: 是否递归展开嵌套的 JSON 字符串（含 lenient 解析）；默认 true
+  const tryParseJson = (str, depth = 0, maxDepth = 15, options = {}) => {
+    const { parseEmbedded = true } = options;
     // 防止无限递归
     if (depth > maxDepth) {
       return { success: false, error: '递归深度超过限制，可能是循环引用的 JSON' };
@@ -311,6 +446,17 @@ const JsonFormatterPage = () => {
 
     if (typeof str !== 'string') {
       return { success: true, data: str };
+    }
+
+    // 保留转义模式：只做一次标准 JSON.parse，不做任何 unwrap / 深度展开 / lenient 兜底
+    // 目的是把嵌套 JSON 字符串保留成字符串，供 preserveEscapesRecursively 展示原始转义符
+    if (!parseEmbedded) {
+      try {
+        const parsed = JSON.parse(str);
+        return { success: true, data: parsed };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
     }
 
     // 首先检查是否是纯字符串（去除引号后）
@@ -348,11 +494,29 @@ const JsonFormatterPage = () => {
       // 首先尝试直接解析
       let parsed = JSON.parse(str);
 
-      // 递归解析结果中的 JSON 字符串字段
-      parsed = deepParseJsonStrings(parsed, depth + 1, maxDepth);
+      // 递归解析结果中的 JSON 字符串字段（保留转义模式下跳过，以保持原始字符串形态）
+      if (parseEmbedded) {
+        parsed = deepParseJsonStrings(parsed, depth + 1, maxDepth);
+      }
 
       return { success: true, data: parsed };
     } catch (e) {
+      // 保留转义模式下，不走宽容解析和后续激进兜底（会破坏原始字符串形态）
+      if (!parseEmbedded) {
+        return { success: false, error: e.message };
+      }
+
+      // 标准解析失败，先尝试宽容解析（容忍未转义的内嵌 JSON 字符串）
+      try {
+        const lenient = lenientParseJson(str);
+        if (lenient !== undefined) {
+          const deepParsed = deepParseJsonStrings(lenient, depth + 1, maxDepth);
+          return { success: true, data: deepParsed };
+        }
+      } catch {
+        // 宽容解析也失败，继续走后续兜底逻辑
+      }
+
       // 直接解析失败，尝试提取 JSON 内容
       try {
         const extracted = extractJsonFromString(str);
@@ -470,7 +634,7 @@ const JsonFormatterPage = () => {
     }
 
     try {
-      const result = tryParseJson(inputJson);
+      const result = tryParseJson(inputJson, 0, 15, { parseEmbedded: !preserveEscape });
 
       if (result.success) {
         const displayData = preserveEscape
