@@ -1,13 +1,30 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, X, FileText, Copy } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Terminal, X, Copy } from 'lucide-react';
 import { diffWordsWithSpace } from 'diff';
-import { toPng } from 'html-to-image';
-import jsPDF from 'jspdf';
 import { toast } from 'sonner';
+
+// 把字面量转义(\n、\r\n、\t)展开为真实字符
+const expandEscaped = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t');
+};
+
+// expandEscaped 的逆操作:把真实换行/制表符折叠回字面量,保证开关可逆
+const collapseEscaped = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/\t/g, '\\t')
+    .replace(/\r\n/g, '\\n')
+    .replace(/\n/g, '\\n');
+};
 
 const splitLines = (text) => {
   const normalized = (text || '').replace(/\r\n/g, '\n');
@@ -277,19 +294,31 @@ const TextDiffPage = () => {
   const [leftText, setLeftText] = useState('');
   const [rightText, setRightText] = useState('');
   const [error, setError] = useState('');
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  // 展开转义换行开关:开=按真实多行显示/比较;关=保留原始字面量 \n。可逆无损。
+  const [expandNewlines, setExpandNewlines] = useState(false);
 
-  const diffRef = useRef(null);
+  const leftOverlayRef = useRef(null);
+  const rightOverlayRef = useRef(null);
 
   useEffect(() => {
     setError('');
   }, [leftText, rightText]);
 
+  // 参与显示与 diff 的实际文本:开关打开时展开转义,否则用原文
+  const displayLeft = useMemo(
+    () => (expandNewlines ? expandEscaped(leftText) : leftText),
+    [leftText, expandNewlines],
+  );
+  const displayRight = useMemo(
+    () => (expandNewlines ? expandEscaped(rightText) : rightText),
+    [rightText, expandNewlines],
+  );
+
   const { rows, summary } = useMemo(() => {
     const emptySummary = { removed: 0, added: 0, modified: 0 };
     try {
-      const leftLines = splitLines(leftText);
-      const rightLines = splitLines(rightText);
+      const leftLines = splitLines(displayLeft);
+      const rightLines = splitLines(displayRight);
 
       if (leftLines.length === 0 && rightLines.length === 0) {
         return { rows: [], summary: emptySummary };
@@ -301,7 +330,7 @@ const TextDiffPage = () => {
     } catch (e) {
       return { rows: [], summary: emptySummary };
     }
-  }, [leftText, rightText]);
+  }, [displayLeft, displayRight]);
 
   const hasRenderableDiff = rows.length > 0;
 
@@ -339,74 +368,97 @@ const TextDiffPage = () => {
     copyText(addedText, '已复制右侧差异内容');
   };
 
-  const generatePDFReport = async () => {
-    if (!diffRef.current || !hasRenderableDiff) {
-      setError('没有差异结果可生成报告');
-      return;
-    }
-
-    setIsGeneratingPDF(true);
-    setError('');
-
-    try {
-      const dataUrl = await toPng(diffRef.current, {
-        backgroundColor: '#f3f4f6',
-        quality: 0.95,
-      });
-
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 190;
-      const imgHeight = (diffRef.current.scrollHeight / diffRef.current.scrollWidth) * imgWidth;
-
-      pdf.setFont('helvetica');
-      pdf.setFontSize(18);
-      pdf.text('文本差异检测报告', 105, 15, null, null, 'center');
-
-      pdf.setFontSize(10);
-      pdf.text(`生成时间: ${new Date().toLocaleString()}`, 105, 22, null, null, 'center');
-
-      pdf.addImage(dataUrl, 'PNG', 10, 30, imgWidth, imgHeight);
-      pdf.save('text-diff-report.pdf');
-    } catch (err) {
-      setError('生成PDF失败: ' + err.message);
-    } finally {
-      setIsGeneratingPDF(false);
-    }
+  // 编辑写回:展开模式下用户看到的是真实换行,折叠回字面量再存,保证 source 一致可逆
+  const makeChangeHandler = (setter) => (nextValue) => {
+    setter(expandNewlines ? collapseEscaped(nextValue) : nextValue);
   };
 
-  const getCellClassName = (cell) => {
-    if (!cell) return 'bg-muted/30';
+  // 每一侧的实际行装饰:按对齐结果里"含该侧内容"的行取出,顺序与 textarea 原始行一一对应
+  const leftDecorations = useMemo(
+    () => rows.filter((row) => row.left).map((row) => row.left),
+    [rows],
+  );
+  const rightDecorations = useMemo(
+    () => rows.filter((row) => row.right).map((row) => row.right),
+    [rows],
+  );
+
+  // 整行底色(叠在输入框文字后面)
+  const getLineBgClass = (cell) => {
+    if (!cell) return '';
     if (cell.type === 'remove' || cell.type === 'modify-remove') {
-      return 'bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100';
+      return 'bg-red-100/80 dark:bg-red-900/30';
     }
     if (cell.type === 'add' || cell.type === 'modify-add') {
-      return 'bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100';
+      return 'bg-green-100/80 dark:bg-green-900/30';
     }
-    return 'bg-background';
+    return '';
   };
 
   const getTokenClassName = (cellType, changed) => {
     if (!changed) return '';
-    if (cellType === 'modify-remove') return 'bg-red-200 dark:bg-red-700/50 rounded-sm';
-    if (cellType === 'modify-add') return 'bg-green-200 dark:bg-green-700/50 rounded-sm';
+    if (cellType === 'modify-remove') return 'bg-red-300/70 dark:bg-red-600/50 rounded-sm';
+    if (cellType === 'modify-add') return 'bg-green-300/70 dark:bg-green-600/50 rounded-sm';
     return '';
   };
 
-  const renderCell = (cell, side, withDivider = false) => (
-    <div className={`grid grid-cols-[56px_minmax(0,1fr)] ${withDivider ? 'border-r border-border' : ''} ${getCellClassName(cell)}`}>
-      <div className={`px-2 py-1 text-right select-none ${side === 'left' ? 'text-red-400 dark:text-red-300' : 'text-green-500 dark:text-green-300'}`}>
-        {cell?.lineNo ?? ''}
-      </div>
-      <div className="px-3 py-1 whitespace-pre-wrap break-words">
-        {cell?.inlineTokens
+  const renderOverlayLines = (decorations) => (
+    decorations.map((cell, index) => (
+      <div key={`${index}-${cell.type}`} className={getLineBgClass(cell)}>
+        {cell.inlineTokens
           ? cell.inlineTokens.map((token) => (
             <span key={token.id} className={getTokenClassName(cell.type, token.changed)}>
               {token.text}
             </span>
           ))
-          : cell?.text || ''}
+          : (cell.text && cell.text.length > 0 ? cell.text : '​')}
       </div>
-    </div>
+    ))
+  );
+
+  // 输入框与其高亮层共用的排版类,必须完全一致才能对齐
+  const paneTypography = 'font-mono text-sm leading-6 whitespace-pre-wrap break-words p-3';
+
+  const syncScroll = (overlayRef) => (e) => {
+    if (overlayRef.current) {
+      overlayRef.current.scrollTop = e.target.scrollTop;
+      overlayRef.current.scrollLeft = e.target.scrollLeft;
+    }
+  };
+
+  const renderPane = ({ title, value, onChange, decorations, overlayRef, placeholder, onClear }) => (
+    <Card>
+      <CardHeader className="flex flex-row justify-between items-center py-3">
+        <CardTitle className="text-base">{title}</CardTitle>
+        <Button variant="outline" size="sm" onClick={onClear} className="flex items-center gap-1" title={`清空${title}`}>
+          <X className="h-4 w-4" />
+          清空
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div className="relative rounded-md border border-border overflow-hidden">
+          {/* 高亮层:显示文字与差异底色,位于底层 */}
+          <div
+            ref={overlayRef}
+            aria-hidden="true"
+            className={`absolute inset-0 overflow-hidden text-foreground ${paneTypography}`}
+          >
+            {decorations.length > 0
+              ? renderOverlayLines(decorations)
+              : null}
+          </div>
+          {/* 编辑层:透明文字,只保留光标,叠在高亮层之上 */}
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onScroll={syncScroll(overlayRef)}
+            placeholder={placeholder}
+            spellCheck={false}
+            className={`relative w-full min-h-[360px] bg-transparent text-transparent caret-foreground resize-y outline-none placeholder:text-muted-foreground ${paneTypography}`}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 
   return (
@@ -431,89 +483,61 @@ const TextDiffPage = () => {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>文本 1</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setLeftText('')} className="flex items-center gap-1" title="清空文本1">
-              <X className="h-4 w-4" />
-              清空
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={leftText}
-              onChange={(e) => setLeftText(e.target.value)}
-              placeholder="在此粘贴第一段文本"
-              className="min-h-[300px] font-mono"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>文本 2</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setRightText('')} className="flex items-center gap-1" title="清空文本2">
-              <X className="h-4 w-4" />
-              清空
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={rightText}
-              onChange={(e) => setRightText(e.target.value)}
-              placeholder="在此粘贴第二段文本"
-              className="min-h-[300px] font-mono"
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex gap-4 mb-6">
-        <Button variant="outline" onClick={clearAll}>清空所有</Button>
-        <Button onClick={generatePDFReport} disabled={!hasRenderableDiff || isGeneratingPDF} className="flex items-center gap-1">
-          <FileText className="h-4 w-4" />
-          {isGeneratingPDF ? '生成中...' : '生成PDF报告'}
-        </Button>
-      </div>
-
       {hasRenderableDiff && (
-        <Card>
-          <CardHeader>
-            <CardTitle>差异结果</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div className="flex items-center justify-between rounded-md border border-red-200 dark:border-red-800 bg-red-50/60 dark:bg-red-900/20 px-3 py-2">
-                <span className="font-medium text-red-700 dark:text-red-300">- {summary.removed}</span>
-                <Button variant="ghost" size="sm" onClick={copyRemoved} className="h-7 px-2 text-red-700 dark:text-red-300">
-                  <Copy className="h-3.5 w-3.5 mr-1" />Copy
-                </Button>
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-green-200 dark:border-green-800 bg-green-50/60 dark:bg-green-900/20 px-3 py-2">
-                <span className="font-medium text-green-700 dark:text-green-300">+ {summary.added}</span>
-                <Button variant="ghost" size="sm" onClick={copyAdded} className="h-7 px-2 text-green-700 dark:text-green-300">
-                  <Copy className="h-3.5 w-3.5 mr-1" />Copy
-                </Button>
-              </div>
-            </div>
-
-            <div ref={diffRef} className="rounded-md border border-border overflow-auto max-h-[520px] font-mono text-sm min-w-[900px]">
-              <div className="sticky top-0 z-10 grid grid-cols-2 border-b border-border bg-muted text-muted-foreground">
-                <div className="px-3 py-2 border-r border-border">-</div>
-                <div className="px-3 py-2">+</div>
-              </div>
-
-              {rows.map((row) => (
-                <div key={row.id} className="grid grid-cols-2 border-b border-border">
-                  {renderCell(row.left, 'left', true)}
-                  {renderCell(row.right, 'right')}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 gap-6 mb-3">
+          <div className="flex items-center justify-between rounded-md border border-red-200 dark:border-red-800 bg-red-50/60 dark:bg-red-900/20 px-3 py-2">
+            <span className="font-medium text-red-700 dark:text-red-300">- {summary.removed}</span>
+            <Button variant="ghost" size="sm" onClick={copyRemoved} className="h-7 px-2 text-red-700 dark:text-red-300">
+              <Copy className="h-3.5 w-3.5 mr-1" />Copy
+            </Button>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-green-200 dark:border-green-800 bg-green-50/60 dark:bg-green-900/20 px-3 py-2">
+            <span className="font-medium text-green-700 dark:text-green-300">+ {summary.added}</span>
+            <Button variant="ghost" size="sm" onClick={copyAdded} className="h-7 px-2 text-green-700 dark:text-green-300">
+              <Copy className="h-3.5 w-3.5 mr-1" />Copy
+            </Button>
+          </div>
+        </div>
       )}
+
+      <div className="flex items-center gap-2 mb-4">
+        <Switch
+          id="expand-newlines"
+          checked={expandNewlines}
+          onCheckedChange={setExpandNewlines}
+        />
+        <Label htmlFor="expand-newlines" className="cursor-pointer select-none">
+          展开 \n 为换行
+        </Label>
+        <span className="text-sm text-muted-foreground">
+          {expandNewlines ? '当前:按真实多行显示与比较' : '当前:保留原始文本'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {renderPane({
+          title: '文本 1',
+          value: displayLeft,
+          onChange: makeChangeHandler(setLeftText),
+          decorations: leftDecorations,
+          overlayRef: leftOverlayRef,
+          placeholder: '在此粘贴第一段文本',
+          onClear: () => setLeftText(''),
+        })}
+        {renderPane({
+          title: '文本 2',
+          value: displayRight,
+          onChange: makeChangeHandler(setRightText),
+          decorations: rightDecorations,
+          overlayRef: rightOverlayRef,
+          placeholder: '在此粘贴第二段文本',
+          onClear: () => setRightText(''),
+        })}
+      </div>
+
+      <div className="flex gap-4">
+        <Button variant="outline" onClick={clearAll}>清空所有</Button>
+      </div>
     </div>
   );
 };
