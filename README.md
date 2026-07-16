@@ -14,4 +14,4 @@ npm run dev
 ```
 
 ## 线上服务
-https://nocode.host/ga6ltn
+https://cxv1w6u16ezu.meoo.fun/
