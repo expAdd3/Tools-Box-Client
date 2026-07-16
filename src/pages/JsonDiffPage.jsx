@@ -37,6 +37,9 @@ const JsonDiffPage = () => {
   const [isLoadingRight, setIsLoadingRight] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
+  // API 请求区域折叠状态
+  const [isApiCollapsed, setIsApiCollapsed] = useState(false);
+
   // 新增状态：历史记录相关
   const [historyList1, setHistoryList1] = useState([]);
   const [showHistory1, setShowHistory1] = useState(false);
@@ -617,6 +620,23 @@ const JsonDiffPage = () => {
     }
   };
 
+  // 自动比较：输入或过滤选项变化时，防抖后自动执行 diff，无需点击按钮
+  useEffect(() => {
+    // 两侧均为空时清空结果，不展示无意义的 diff
+    if (!leftJson.trim() && !rightJson.trim()) {
+      setDiffResult([]);
+      setError('');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      compareJson();
+    }, 500);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leftJson, rightJson, ignoreOptions]);
+
   const clearAll = () => {
     setLeftJson('');
     setRightJson('');
@@ -769,28 +789,19 @@ const JsonDiffPage = () => {
       <div className="container mx-auto p-4">
         <h1 className="text-3xl font-bold mb-6">JSON 差异比较工具</h1>
 
-        {error && (
-            <Alert variant="destructive" className="mb-4 relative">
-              <div className="absolute top-3 right-3">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setError('')}
-                    className="text-current opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <Terminal className="h-4 w-4" />
-              <AlertTitle>错误</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-        )}
-
         <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>API 请求</CardTitle>
+          <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => setIsApiCollapsed(prev => !prev)}
+          >
+            <CardTitle className="flex items-center justify-between">
+              <span>API 请求</span>
+              {isApiCollapsed
+                  ? <ChevronDown className="h-5 w-5" />
+                  : <ChevronUp className="h-5 w-5" />}
+            </CardTitle>
           </CardHeader>
+          {!isApiCollapsed && (
           <CardContent>
             {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> */}
             {/* 左侧URL输入框 */}
@@ -1002,6 +1013,7 @@ const JsonDiffPage = () => {
               <p>提示：使用公共API时可能需要代理服务解决跨域问题</p>
             </div>
           </CardContent>
+          )}
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1250,6 +1262,24 @@ const JsonDiffPage = () => {
             {isGeneratingPDF ? "生成中..." : "生成PDF报告"}
           </Button>
         </div>
+
+        {error && (
+            <Alert variant="destructive" className="mb-6 relative">
+              <div className="absolute top-3 right-3">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setError('')}
+                    className="text-current opacity-100"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <Terminal className="h-4 w-4" />
+              <AlertTitle>错误</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        )}
 
         {diffResult.length > 0 && (
             <Card>
